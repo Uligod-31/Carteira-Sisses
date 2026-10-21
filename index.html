@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Caderneta</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://epywsjqmfzklpfvhhycn.supabase.co wss://epywsjqmfzklpfvhhycn.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="theme-color" content="#f2f5f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c1411" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Caderneta">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ENTRADA -->
+<main id="auth" class="auth" hidden>
+  <div class="auth-card">
+    <div class="eyebrow">Carteirisses (Base) · Trading 212</div>
+    <h1>Caderneta</h1>
+    <p class="muted small" id="auth-intro">Entra com o teu email e password. Os teus dados ficam guardados na tua base de dados e só tu os vês.</p>
+    <form id="auth-form" novalidate>
+      <label for="a-email">Email<input id="a-email" type="email" autocomplete="email" inputmode="email" required></label>
+      <label for="a-pass">Password<input id="a-pass" type="password" autocomplete="current-password" minlength="8" required></label>
+      <div class="row">
+        <button class="btn" type="submit" id="a-in">Entrar</button>
+        <button class="btn ghost" type="button" id="a-up">Criar conta</button>
+      </div>
+      <button class="link" type="button" id="a-reset">Esqueci a password</button>
+    </form>
+    <form id="newpass-form" hidden novalidate>
+      <label for="np-pass">Nova password (mínimo 8 caracteres)<input id="np-pass" type="password" autocomplete="new-password" minlength="8"></label>
+      <button class="btn" type="submit">Guardar nova password</button>
+    </form>
+    <div class="msg" id="auth-msg" role="status"></div>
+  </div>
+</main>
+
+<!-- APP -->
+<div id="app" hidden>
+  <header class="top">
+    <div>
+      <div class="eyebrow">Carteirisses (Base) · Trading 212</div>
+      <h1>Caderneta</h1>
+    </div>
+    <div class="sync" id="sync" title="Estado da ligação"><i></i><span id="sync-t">A carregar</span></div>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <div class="views">
+
+  <!-- CARTEIRA -->
+  <section id="t-carteira">
+    <div id="seedbox" class="card" hidden>
+      <h2>Ainda sem dados</h2>
+      <p class="muted small">Posso carregar a tua carteira atual (VWCE 70 %, XEON 30 %), o registo de hoje e as decisões já tomadas. Depois ajustas tudo na app.</p>
+      <button class="btn" id="seed-go">Carregar dados iniciais</button>
+    </div>
+
+    <div class="card hero">
+      <div class="eyebrow">Valor da pie</div>
+      <div class="big" id="total">—</div>
+      <div class="num" id="ganho"></div>
+      <div class="row" style="margin-top:12px"><button class="btn sm" id="snap-today">Guardar registo de hoje</button><span class="small muted" id="snap-msg"></span></div>
+    </div>
+
+    <div class="card">
+      <h2>Repartição</h2>
+      <div class="bar" id="bar" aria-hidden="true"></div>
+      <div class="small muted" id="bar-note"></div>
+      <table class="alloc"><thead><tr><th>ETF</th><th>Valor</th><th>Atual / alvo</th><th>Desvio</th></tr></thead><tbody id="alloc"></tbody></table>
+      <div class="alert" id="drift" hidden></div>
+    </div>
+
+    <div class="card">
+      <h2>Para onde vai o próximo dinheiro</h2>
+      <p class="small muted">Comprar primeiro o que está abaixo do alvo evita vender e pagar impostos.</p>
+      <label for="dep" class="narrow">Entrada (€)<input id="dep" inputmode="decimal" value="10"></label>
+      <div id="rebal" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>Editar posições</summary>
+        <div id="hold-edit" class="stack"></div>
+        <h3>Adicionar posição</h3>
+        <div class="grid">
+          <label for="hn-t">Ticker<input id="hn-t" maxlength="20" autocapitalize="characters"></label>
+          <label for="hn-n">Nome<input id="hn-n" maxlength="120"></label>
+          <label for="hn-c">Classe<select id="hn-c"><option value="acoes">Ações</option><option value="defensivo">Defensivo</option><option value="caixa">Caixa</option></select></label>
+          <label for="hn-v">Valor (€)<input id="hn-v" inputmode="decimal"></label>
+          <label for="hn-g">Ganho (€)<input id="hn-g" inputmode="decimal" value="0"></label>
+          <label for="hn-a">Alvo (%)<input id="hn-a" inputmode="decimal" value="0"></label>
+        </div>
+        <div class="row" style="margin-top:12px"><button class="btn" id="hn-add">Adicionar</button></div>
+        <p class="small muted">Valores e ganho: copia da aba Participações da Trading 212. A soma dos alvos (sem caixa) deve dar 100 %.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- PROJEÇÃO -->
+  <section id="t-proj" hidden>
+    <div class="card">
+      <h2>O que acontece sem depositar mais</h2>
+      <p class="small muted">Cenários com hipóteses que podes mudar. Não são previsões.</p>
+      <div class="chips" style="margin:12px 0">
+        <button class="btn ghost sm" data-c="0">Sem depositar</button>
+        <button class="btn ghost sm" data-c="5">+5 €/mês</button>
+        <button class="btn ghost sm" data-c="10">+10 €/mês</button>
+        <button class="btn ghost sm" data-c="25">+25 €/mês</button>
+      </div>
+      <div class="grid">
+        <label for="p-contrib">Contribuição mensal (€)<input id="p-contrib" inputmode="decimal"></label>
+        <label for="p-anos">Horizonte (anos)<input id="p-anos" inputmode="numeric"></label>
+        <label for="p-peso">Peso em ações (%)<input id="p-peso" inputmode="decimal"></label>
+        <label for="p-xe">Parte defensiva (% ao ano)<input id="p-xe" inputmode="decimal"></label>
+        <label for="p-pess">Ações pessimista (% ao ano)<input id="p-pess" inputmode="decimal"></label>
+        <label for="p-base">Ações base (% ao ano)<input id="p-base" inputmode="decimal"></label>
+        <label for="p-opt">Ações otimista (% ao ano)<input id="p-opt" inputmode="decimal"></label>
+        <label for="p-shock">Ano 1 mau nas ações (%)<input id="p-shock" inputmode="decimal"></label>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="btn ghost sm" id="p-peso-alvo">Usar o peso-alvo da pie</button></div>
+      <p class="small muted" id="p-hint"></p>
+    </div>
+
+    <div class="pair">
+      <div class="card tile"><div class="small muted">Só o que já está investido</div><div class="v" id="onlyNow"></div><div class="small muted" id="onlyNowSub"></div></div>
+      <div class="card tile"><div class="small muted">Com a contribuição acima</div><div class="v" id="withC"></div><div class="small muted" id="withCSub"></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Evolução do valor</h2>
+      <div id="chart"></div>
+      <div class="legend">
+        <span class="dash" style="--c:var(--muted)">Depositado</span>
+        <span style="--c:var(--c2)">Pessimista</span>
+        <span style="--c:var(--accent)">Base</span>
+        <span style="--c:var(--c3)">Otimista</span>
+        <span class="dash" style="--c:var(--neg)">Ano 1 mau</span>
+      </div>
+    </div>
+
+    <div class="card scroll"><table class="t"><thead><tr><th>Ano</th><th>Depositado</th><th>Pessim.</th><th>Base</th><th>Otimista</th><th>Ano 1 mau</th></tr></thead><tbody id="ptable"></tbody></table></div>
+    <p class="small muted" id="pnote"></p>
+  </section>
+
+  <!-- RETORNO -->
+  <section id="t-ret" hidden>
+    <div class="card hero">
+      <div class="eyebrow">Retorno acumulado</div>
+      <div class="big" id="r-cum">—</div>
+      <div class="small muted" id="r-sub"></div>
+    </div>
+
+    <div class="card">
+      <h2>Registar o mês</h2>
+      <p class="small muted">O gráfico da Trading 212 mistura depósitos com performance. Aqui o retorno de cada período desconta o que depositaste.</p>
+      <div class="grid">
+        <label for="s-d">Data<input id="s-d" type="date"></label>
+        <label for="s-v">Valor da pie (€)<input id="s-v" inputmode="decimal"></label>
+        <label for="s-i">Total depositado (€)<input id="s-i" inputmode="decimal"></label>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="s-add">Guardar registo</button><button class="btn ghost" id="s-fill">Usar valores da Carteira</button></div>
+      <div class="msg" id="s-msg"></div>
+    </div>
+
+    <div class="card" id="snapchart-card" hidden>
+      <h2>Valor e depositado</h2>
+      <div id="snapchart"></div>
+      <div class="legend"><span style="--c:var(--accent)">Valor da pie</span><span class="dash" style="--c:var(--c2)">Depositado</span></div>
+    </div>
+
+    <div class="card scroll"><table class="t"><thead><tr><th>Data</th><th>Valor</th><th>Depositado</th><th>Período</th><th>Acumulado</th><th></th></tr></thead><tbody id="stable"></tbody></table></div>
+    <p class="small muted">Retorno do período = (valor final − valor inicial − depósitos do período) ÷ valor inicial. Só faz sentido anualizar com pelo menos um ano de histórico.</p>
+
+    <div class="card">
+      <h2>Disciplina de aportes</h2>
+      <div class="pair" style="margin-bottom:12px">
+        <div class="card tile"><div class="small muted">Meses seguidos com aporte</div><div class="v" id="streak">0</div></div>
+        <div class="card tile"><div class="small muted">Total registado</div><div class="v" id="aptotal">0 €</div></div>
+      </div>
+      <div id="apchart"></div>
+      <h3>Registar aporte</h3>
+      <div class="grid">
+        <label for="ap-d">Data<input id="ap-d" type="date"></label>
+        <label for="ap-v">Valor (€)<input id="ap-v" inputmode="decimal"></label>
+        <label for="ap-t">ETF<select id="ap-t"></select></label>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="ap-add">Registar aporte</button></div>
+      <div class="msg" id="ap-msg"></div>
+      <div id="aplist"></div>
+    </div>
+  </section>
+
+  <!-- PLANO -->
+  <section id="t-plano" hidden>
+    <div class="card">
+      <h2>Orçamento mensal</h2>
+      <div class="grid">
+        <label for="b-rend">Rendimento mensal (€)<input id="b-rend" inputmode="decimal"></label>
+        <div class="tile2"><div class="small muted">Despesas</div><div class="num strong" id="b-desp">0 €</div></div>
+        <div class="tile2"><div class="small muted">Disponível para investir</div><div class="num strong" id="b-sobra">0 €</div></div>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="btn ghost sm" id="b-use">Usar na projeção</button><span class="small muted" id="b-msg"></span></div>
+
+      <h3>Despesas fixas</h3>
+      <div id="b-desp-list"></div>
+      <div class="row add"><input id="bd-n" placeholder="Nome" maxlength="120" aria-label="Nome da despesa"><input id="bd-v" placeholder="€" inputmode="decimal" aria-label="Valor da despesa"><button class="btn sm" id="bd-add">Adicionar</button></div>
+
+      <h3>Poupanças (fundo de emergência, contas)</h3>
+      <div id="b-poup-list"></div>
+      <div class="row add"><input id="bp-n" placeholder="Nome" maxlength="120" aria-label="Nome da poupança"><input id="bp-v" placeholder="€" inputmode="decimal" aria-label="Valor da poupança"><button class="btn sm" id="bp-add">Adicionar</button></div>
+      <div class="split"><span>Património total (pie + poupanças)</span><b class="num" id="b-pat">0 €</b></div>
+    </div>
+
+    <div class="card">
+      <h2>Objetivos</h2>
+      <div class="grid">
+        <label for="g-n">Nome<input id="g-n" maxlength="120"></label>
+        <label for="g-a">Alvo (€)<input id="g-a" inputmode="decimal"></label>
+        <label for="g-p">Prazo<input id="g-p" type="date"></label>
+        <label for="g-b">Medir contra<select id="g-b"><option value="pie">Valor da pie</option><option value="patrimonio">Património total</option></select></label>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="g-add">Criar objetivo</button></div>
+      <div id="g-list"></div>
+    </div>
+  </section>
+
+  <!-- REVISÕES -->
+  <section id="t-rev" hidden>
+    <div class="card">
+      <h2 id="rv-title">Revisão do mês</h2>
+      <div class="pair" style="margin:8px 0 12px">
+        <div class="card tile"><div class="small muted">Valor / ganho</div><div class="v small-v" id="rv-val"></div></div>
+        <div class="card tile"><div class="small muted">Maior desvio ao alvo</div><div class="v small-v" id="rv-drift"></div></div>
+      </div>
+      <div id="rv-checks" class="checks"></div>
+      <label for="rv-t" style="margin-top:12px">O que correu bem? Algo a ajustar?<textarea id="rv-t" maxlength="3500"></textarea></label>
+      <div class="row" style="margin-top:12px"><button class="btn" id="rv-save">Guardar revisão</button></div>
+      <div class="msg" id="rv-msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Nova nota</h2>
+      <div class="grid">
+        <label for="n-k">Tipo<select id="n-k"><option value="nota">Nota</option><option value="decisao">Decisão</option><option value="pendente">Pendente</option><option value="rejeitado">Fechado</option></select></label>
+        <label for="n-d">Data<input id="n-d" type="date"></label>
+      </div>
+      <label for="n-t" style="margin-top:12px">Texto<textarea id="n-t" maxlength="3500"></textarea></label>
+      <div class="row" style="margin-top:12px"><button class="btn" id="n-add">Adicionar</button></div>
+    </div>
+
+    <div class="card">
+      <div class="row between"><h2>Revisões e decisões</h2>
+        <select id="n-f" aria-label="Filtrar notas"><option value="">Todas</option><option value="pendente">Pendentes</option><option value="decisao">Decisões</option><option value="rejeitado">Fechados</option><option value="revisao">Revisões</option><option value="nota">Notas</option></select></div>
+      <div id="notes"></div>
+    </div>
+
+    <div class="card">
+      <h2>Conta</h2>
+      <div class="split"><span>Sessão</span><b id="c-email" class="num small"></b></div>
+      <div class="split"><span>Última sincronização</span><b id="c-sync" class="num small">—</b></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn ghost sm" id="c-install" hidden>Instalar no telemóvel</button>
+        <button class="btn ghost sm" id="c-export">Copiar cópia de segurança</button>
+        <button class="btn ghost sm" id="c-out">Sair</button>
+      </div>
+      <p class="small muted" id="c-ios" hidden>No iPhone: abre no Safari, toca em Partilhar e escolhe "Adicionar ao ecrã principal".</p>
+      <div class="msg" id="c-msg"></div>
+    </div>
+    <p class="foot">Perder é pior do que ganhar pouco.</p>
+  </section>
+
+  </div>
+
+  <nav class="nav" id="nav" aria-label="Secções">
+    <button data-tab="carteira" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg><span>Carteira</span></button>
+    <button data-tab="proj"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-5 4 3 8-9"/><path d="M15 6h5v5"/></svg><span>Projeção</span></button>
+    <button data-tab="ret"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Retorno</span></button>
+    <button data-tab="plano"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg><span>Plano</span></button>
+    <button data-tab="rev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 11h8M8 15h6"/></svg><span>Revisões</span></button>
+  </nav>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
