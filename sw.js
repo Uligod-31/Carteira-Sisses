@@ -1,6 +1,6 @@
 // Service worker: guarda a "casca" da app para abrir offline.
 // Os dados vêm sempre do Supabase (pedidos a outros domínios não são intercetados).
-const V = "caderneta-v3";
+const V = "caderneta-v4";
 const SHELL = [
   "./", "index.html", "styles.css", "app.js", "config.js", "manifest.webmanifest",
   "vendor/supabase.js",
@@ -14,7 +14,8 @@ const SHELL = [
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: "reload" ignora a cache HTTP do browser, para não guardar ficheiros antigos.
+  e.waitUntil(caches.open(V).then((c) => Promise.all(SHELL.map((u) => c.add(new Request(u, { cache: "reload" }))))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -33,7 +34,7 @@ self.addEventListener("fetch", (e) => {
   e.respondWith(
     caches.open(V).then(async (cache) => {
       const cached = await cache.match(req, { ignoreSearch: true });
-      const net = fetch(req)
+      const net = fetch(req.mode === "navigate" ? req : new Request(req, { cache: "no-cache" }))
         .then((res) => { if (res && res.ok) cache.put(req, res.clone()); return res; })
         .catch(() => null);
       if (cached) { net.catch(() => {}); return cached; }

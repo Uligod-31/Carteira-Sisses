@@ -20,8 +20,11 @@ class Fail extends Error {
 
 const round2 = (n: unknown) => Math.round((Number(n) || 0) * 100) / 100;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-// "VWCEd_EQ" -> "VWCE", "XEONd_EQ" -> "XEON"
+// "VWCEd_EQ" -> "VWCE"
 const baseTicker = (t: string) => t.match(/^[A-Z0-9]+/)?.[0] ?? t;
+// A Trading 212 chama DBXT ao ETF que na Caderneta se chama XEON.
+const ALIAS: Record<string, string> = { DBXT: 'XEON' };
+const caderneta = (t: string) => ALIAS[baseTicker(t)] ?? baseTicker(t);
 
 // A chave "anon" é pública e também é um JWT válido, por isso o verify_jwt sozinho não chega:
 // confirmamos que o pedido traz a sessão de um utilizador autenticado.
@@ -107,7 +110,7 @@ Deno.serve(async (req) => {
 
     // deno-lint-ignore no-explicit-any
     const instrumentos = (detail.instruments ?? []).map((i: any) => ({
-      ticker: baseTicker(String(i.ticker)),
+      ticker: caderneta(String(i.ticker)),
       t212Ticker: String(i.ticker),
       quantidade: Number(i.ownedQuantity) || 0,
       valor: round2(i.result?.priceAvgValue),
