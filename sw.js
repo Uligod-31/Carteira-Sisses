@@ -1,8 +1,9 @@
 // Service worker: guarda a "casca" da app para abrir offline.
 // Os dados vêm sempre do Supabase (pedidos a outros domínios não são intercetados).
-const V = "caderneta-v5";
+importScripts("version.js");
+const V = "caderneta-v" + self.CADERNETA_VERSION.v;
 const SHELL = [
-  "./", "index.html", "styles.css", "app.js", "config.js", "manifest.webmanifest",
+  "./", "index.html", "styles.css", "app.js", "config.js", "version.js", "manifest.webmanifest",
   "vendor/supabase.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "icons/favicon-32.png",
   "fonts/bricolage-grotesque-latin-600-normal.woff2",
@@ -31,6 +32,7 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  if (url.searchParams.has("nocache")) return; // verificação de versão: vai sempre ao servidor
   e.respondWith(
     caches.open(V).then(async (cache) => {
       const cached = await cache.match(req, { ignoreSearch: true });

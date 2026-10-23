@@ -421,7 +421,29 @@
     const f = $('#n-f').value, l = S.notes.filter((n) => !f || n.tipo === f);
     $('#notes').innerHTML = l.length ? l.map((n) => '<div class="note"><span class="pill ' + esc(n.tipo) + '">' + esc(KL[n.tipo] || 'Nota') + '</span><div class="body"><div>' + esc(n.texto) + '</div><div class="small muted">' + fdate(n.data) + '</div></div><button class="x" data-del-n="' + esc(n.id) + '" aria-label="Apagar nota">×</button></div>').join('') : '<p class="small muted">Sem notas.</p>';
   }
+  /* ---------- versão da app ---------- */
+  const VER = window.CADERNETA_VERSION || { v: 0, data: '', nota: '' };
+  const verTxt = () => 'v' + VER.v + (VER.data ? ' · ' + fdate(VER.data) : '');
+  function showVersion() { $$('[data-ver]').forEach((e) => { e.textContent = verTxt(); }); }
+  async function checkUpdate() {
+    const btn = $('#c-upd'), msg = $('#c-msg'), label = btn.textContent;
+    if (!needOnline()) return;
+    btn.disabled = true; btn.textContent = 'A procurar…';
+    try {
+      const r = await fetch('version.js?nocache=' + Date.now(), { cache: 'no-store' });
+      const m = r.ok ? (await r.text()).match(/v:\s*(\d+)/) : null;
+      if (!m) throw new Error('não consegui ler a versão publicada');
+      const nova = +m[1];
+      if (nova > VER.v) {
+        msg.textContent = 'Há uma versão nova (v' + nova + '). A atualizar…'; msg.className = 'msg';
+        try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch (e) { /* ignora */ }
+        setTimeout(() => location.reload(), 1500);
+      } else { msg.textContent = 'Estás na versão mais recente (' + verTxt() + ').'; msg.className = 'msg'; }
+    } catch (e) { msg.textContent = 'Não foi possível verificar: ' + (e.message || e); msg.className = 'msg bad'; }
+    finally { btn.disabled = false; btn.textContent = label; }
+  }
   function rConta() {
+    $('#c-ver').textContent = verTxt();
     $('#c-email').textContent = user ? user.email : '';
     $('#c-sync').textContent = lastSync ? lastSync.toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) : '—';
   }
@@ -734,6 +756,7 @@
     });
 
     // conta
+    $('#c-upd').addEventListener('click', checkUpdate);
     $('#c-out').addEventListener('click', async () => { await sb.auth.signOut(); });
     $('#c-export').addEventListener('click', async () => {
       const txt = JSON.stringify({ exportado_em: new Date().toISOString(), ...S }, null, 2);
@@ -798,7 +821,7 @@
 
   /* ---------- arranque ---------- */
   async function init() {
-    bindAuth(); bindApp(); showTab('carteira');
+    showVersion(); bindAuth(); bindApp(); showTab('carteira');
     window.addEventListener('online', () => { if (user) refresh(); });
     window.addEventListener('offline', () => { offline = true; setSync('off', 'Offline'); });
     sb.auth.onAuthStateChange((event, session) => {
@@ -809,7 +832,7 @@
     const { data } = await sb.auth.getSession();
     if (data.session) startFor(data.session.user); else if (!$('#app').hidden === false) showAuth('login');
     if (!data.session) showAuth('login');
-    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
   }
   init();
 })();

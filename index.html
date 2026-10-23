@@ -39,6 +39,7 @@
       <button class="btn" type="submit">Guardar nova password</button>
     </form>
     <div class="msg" id="auth-msg" role="status"></div>
+    <div class="ver" data-ver style="margin-top:14px"></div>
   </div>
 </main>
 
@@ -49,7 +50,7 @@
       <div class="eyebrow">Carteirisses (Base) · Trading 212</div>
       <h1>Caderneta</h1>
     </div>
-    <div class="sync" id="sync" title="Estado da ligação"><i></i><span id="sync-t">A carregar</span></div>
+    <div class="hright"><div class="sync" id="sync" title="Estado da ligação"><i></i><span id="sync-t">A carregar</span></div><div class="ver" data-ver></div></div>
   </header>
   <div class="banner" id="banner" hidden></div>
 
@@ -304,8 +305,10 @@
       <h2>Conta</h2>
       <div class="split"><span>Sessão</span><b id="c-email" class="num small"></b></div>
       <div class="split"><span>Última sincronização</span><b id="c-sync" class="num small">—</b></div>
+      <div class="split"><span>Versão da app</span><b id="c-ver" class="num small">—</b></div>
       <div class="row" style="margin-top:12px">
         <button class="btn ghost sm" id="c-install" hidden>Instalar no telemóvel</button>
+        <button class="btn ghost sm" id="c-upd">Procurar atualização</button>
         <button class="btn ghost sm" id="c-export">Copiar cópia de segurança</button>
         <button class="btn ghost sm" id="c-out">Sair</button>
       </div>
@@ -331,6 +334,7 @@
 
 <script src="vendor/supabase.js"></script>
 <script src="config.js"></script>
+<script src="version.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
