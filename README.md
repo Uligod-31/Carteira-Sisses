@@ -35,4 +35,11 @@ A app nunca guarda a chave da Trading 212: ela vive como segredo na Edge Functio
 
 A API de Pies da Trading 212 está marcada como obsoleta (continua a funcionar, mas sem novas atualizações). Se deixar de funcionar, a atualização manual continua disponível.
 
+## 7. Radar (BCE + fichas dos ETFs)
+Separador só de leitura. Não recomenda comprar nem vender.
+1. SQL: corre `supabase/schema.sql` (cria `cf_radar_refs`) e depois `supabase/radar_seed.sql` (fichas iniciais de VWCE e XEON).
+2. Publica a Edge Function `radar-ecb` (`supabase/functions/radar-ecb/index.ts`). Não precisa de segredos: lê a API aberta do BCE.
+3. Na aba Radar, "Atualizar" lê o €STR, as taxas do BCE, a dívida AAA da zona euro e a inflação.
+4. As fichas (justETF, Trackinsight) guardam a data e a ligação da fonte. Em conflito vale a factsheet do emissor.
+
 A chave em `config.js` é a chave pública (anon). É seguro estar no GitHub: os dados estão protegidos pelo login e pelas regras RLS.

@@ -19,7 +19,7 @@
 
   /* ---------- estado ---------- */
   const DEF_P = { contrib: 10, anos: 10, peso: null, xe: 2, pess: 0, base: 5, opt: 8, shock: -20 };
-  const emptyS = () => ({ holdings: [], snaps: [], aportes: [], notes: [], budget: [], goals: [], cfg: { p: { ...DEF_P }, rendimento: 0, checks: {} } });
+  const emptyS = () => ({ holdings: [], snaps: [], aportes: [], notes: [], budget: [], goals: [], refs: [], cfg: { p: { ...DEF_P }, rendimento: 0, checks: {} } });
   let S = emptyS();
   let user = null;
   let loadedFor = null;
@@ -47,6 +47,7 @@
   /* ---------- base de dados ---------- */
   const nH = (r) => ({ id: r.id, ticker: r.ticker, nome: r.nome, classe: r.classe, valor: +r.valor, ganho: +r.ganho, alvo: +r.alvo_pct, ordem: r.ordem });
   const dbH = (h) => ({ id: h.id, user_id: user.id, ticker: h.ticker, nome: h.nome, classe: h.classe, valor: h.valor, ganho: h.ganho, alvo_pct: h.alvo, ordem: h.ordem, updated_at: new Date().toISOString() });
+  const nR = (r) => ({ id: r.id, ticker: String(r.ticker || '').toUpperCase(), fonte: r.fonte, campo: r.campo, num: r.valor_num == null ? null : +r.valor_num, txt: r.valor_txt || '', data: r.data_ref, url: r.url || '' });
   const mergeCfg = (d) => { d = d || {}; return { p: { ...DEF_P, ...(d.p || {}) }, rendimento: +d.rendimento || 0, checks: d.checks || {} }; };
 
   async function w(promise, okMsg) {
@@ -81,6 +82,7 @@
       S.budget = r[4].data.map((x) => ({ id: x.id, tipo: x.tipo, nome: x.nome, valor: +x.valor }));
       S.goals = r[5].data.map((x) => ({ id: x.id, nome: x.nome, alvo: +x.alvo, prazo: x.prazo, base: x.base }));
       S.cfg = mergeCfg(r[6].data && r[6].data.data);
+      await loadRefs();
       offline = false; lastSync = new Date(); persist(); banner(''); setSync('ok', 'Sincronizado');
     } catch (e) {
       const msg = String((e && e.message) || e);
@@ -424,9 +426,139 @@
     $('#c-sync').textContent = lastSync ? lastSync.toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) : '—';
   }
 
-  function renderAll() { rCart(); rHoldEdit(); fillProjInputs(); rProj(); rRet(); rBudgetLists(); $('#b-rend').value = String(S.cfg.rendimento).replace('.', ','); rPlano(); rRev(); rConta(); }
-  function recompute() { rCart(); rProj(); rRet(); rPlano(); rRev(); fillPesoIfAuto(); }
+  function renderAll() { rCart(); rHoldEdit(); fillProjInputs(); rProj(); rRet(); rBudgetLists(); $('#b-rend').value = String(S.cfg.rendimento).replace('.', ','); rPlano(); rRadar(); rRev(); rConta(); }
+  function recompute() { rCart(); rProj(); rRet(); rPlano(); rRadar(); rRev(); fillPesoIfAuto(); }
   function fillPesoIfAuto() { if (S.cfg.p.peso == null && document.activeElement !== $('#p-peso')) $('#p-peso').value = String(+pesoAlvoAcoes().toFixed(2)).replace('.', ','); }
+
+
+  /* ---------- RADAR (BCE + fichas dos comparadores) ---------- */
+  // Só leitura. O BCE vem da Edge Function "radar-ecb". As fichas (justETF, Trackinsight) ficam em cf_radar_refs com data e ligação à fonte.
+  const radarKey = () => 'cad.radar.ecb.v1.' + (user ? user.id : '');
+  let ecb = null;
+  function loadEcbCache() { try { const r = localStorage.getItem(radarKey()); ecb = r ? JSON.parse(r) : null; } catch (e) { ecb = null; } }
+  async function loadRefs() {
+    try {
+      const r = await sb.from('cf_radar_refs').select('*').order('ticker');
+      if (r.error) throw r.error;
+      S.refs = r.data.map(nR);
+    } catch (e) { S.refs = S.refs || []; /* a tabela pode ainda não existir: o resto da app não depende dela */ }
+  }
+  const ageDays = (d) => Math.floor((Date.now() - Date.parse(d + 'T12:00:00Z')) / 86400000);
+  const fdateAny = (d) => (d && d.length === 7 ? d.slice(5) + '/' + d.slice(0, 4) : fdate(d));
+  const pp = (n, d = 2) => sp(n, d).replace(' %', ' pp');
+  const FONTES = { justetf: 'justETF', trackinsight: 'Trackinsight', emissor: 'Emissor' };
+  const CAMPOS = [['ter', 'Custo anual (TER)'], ['aum_m', 'Tamanho do fundo'], ['dd_5a', 'Pior queda, 5 anos'], ['dd_max', 'Pior queda, desde o início'], ['ytd', 'Retorno no ano'], ['replicacao', 'Replicação'], ['indice', 'Índice']];
+  const fmtTer = (n) => new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(n) + ' %';
+  function fmtCampo(c, r) {
+    if (!r) return '—';
+    if (c === 'replicacao' || c === 'indice') return esc(r.txt || '—');
+    if (r.num == null) return '—';
+    if (c === 'aum_m') return esc(new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 }).format(r.num / 1000) + ' mil M€');
+    if (c === 'ter') return esc(fmtTer(r.num));
+    return esc(pc(r.num, 2));
+  }
+  const refOf = (t, campo) => ['emissor', 'justetf', 'trackinsight'].map((f) => S.refs.find((r) => r.ticker === t && r.fonte === f && r.campo === campo && r.num != null)).find(Boolean);
+
+  function radarAlerts() {
+    const out = [];
+    S.holdings.filter((h) => h.classe !== 'caixa').map((h) => h.ticker.toUpperCase()).forEach((t) => {
+      const rs = S.refs.filter((r) => r.ticker === t);
+      if (!rs.length) { out.push(t + ': ainda sem ficha de referência. Pede no chat "atualiza o Radar".'); return; }
+      const newest = rs.reduce((a, r) => (r.data > a ? r.data : a), '');
+      const age = ageDays(newest);
+      if (age > 35) out.push('As fichas de ' + t + ' têm ' + age + ' dias. Pede no chat "atualiza o Radar".');
+      const ters = rs.filter((r) => r.campo === 'ter' && r.num != null);
+      if (ters.length > 1) {
+        const lo = Math.min(...ters.map((r) => r.num)), hi = Math.max(...ters.map((r) => r.num));
+        if (hi - lo > 0.02) out.push(t + ': o TER difere entre fontes (' + fmtTer(lo) + ' a ' + fmtTer(hi) + '). Vale a factsheet do emissor.');
+      }
+    });
+    if (ecb && Array.isArray(ecb.series)) {
+      const dfr = ecb.series.find((x) => x.id === 'dfr' && !x.error);
+      if (dfr && dfr.alteracao && ageDays(dfr.alteracao.data) <= 45) out.push('O BCE alterou a taxa de depósito em ' + fdate(dfr.alteracao.data) + ' (de ' + pc(dfr.alteracao.de) + ' para ' + pc(dfr.alteracao.para) + '). O XEON acompanha o €STR.');
+      const e = ecb.series.find((x) => x.id === 'estr' && !x.error);
+      if (e && e.var30d != null && Math.abs(e.var30d) >= 0.10) out.push('O €STR mexeu ' + pp(e.var30d) + ' em 30 dias.');
+    }
+    return out;
+  }
+
+  function ecbRow(s) {
+    if (s.error) return '<div class="split"><span>' + esc(s.label) + '</span><span class="small warn">' + esc(s.error) + '</span></div>';
+    const d = s.id === 'estr' ? 3 : 2;
+    let sub = '';
+    if (s.kind === 'level') sub = s.var30d == null ? '' : ' · ' + pp(s.var30d) + ' em 30 dias';
+    else if (s.kind === 'step') sub = s.alteracao ? ' · alterada a ' + fdate(s.alteracao.data) + ' (de ' + pc(s.alteracao.de) + ')' : ' · sem alteração desde ' + fdate(s.semAlteracaoDesde);
+    else if (s.anterior) sub = ' · antes: ' + pc(s.anterior.valor, 1);
+    return '<div class="split"><span>' + esc(s.label) + '<br><span class="small muted">' + esc(fdateAny(s.data)) + esc(sub) + '</span></span><b class="num">' + pc(s.valor, d) + '</b></div>';
+  }
+
+  function rRadar() {
+    // veredicto
+    const al = radarAlerts();
+    $('#rd-verdict').innerHTML = al.length
+      ? '<b>Para ver na revisão do mês</b><ul>' + al.map((a) => '<li>' + esc(a) + '</li>').join('') + '</ul>'
+      : '<b class="ok">Sem ação.</b> Nada mudou que justifique mexer na carteira.';
+
+    // BCE
+    if (ecb && Array.isArray(ecb.series)) {
+      $('#rd-ecb-list').innerHTML = ecb.series.map(ecbRow).join('');
+      $('#rd-ecb-sub').textContent = 'Fonte: Portal de Dados do BCE. Lido a ' + new Date(ecb.lidoEm).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) + '.';
+    } else {
+      $('#rd-ecb-list').innerHTML = '';
+      $('#rd-ecb-sub').textContent = 'Fonte: Portal de Dados do BCE (aberto, sem chave). Toca em Atualizar para ler.';
+    }
+
+    // XEON: índice = €STR + spread, menos o TER
+    const estr = ecb && Array.isArray(ecb.series) ? ecb.series.find((x) => x.id === 'estr' && !x.error) : null;
+    const ter = refOf('XEON', 'ter'), idx = S.refs.find((r) => r.ticker === 'XEON' && r.campo === 'indice' && /€STR\s*\+\s*[\d.,]+/.test(r.txt));
+    const bps = idx ? parseFloat(idx.txt.match(/€STR\s*\+\s*([\d.,]+)/)[1].replace(',', '.')) : null;
+    $('#rd-xeon-card').hidden = !(estr && ter && bps != null);
+    if (estr && ter && bps != null) {
+      const spread = bps / 100, est = estr.valor + spread - ter.num;
+      $('#rd-xeon').innerHTML =
+        '<div class="split"><span>€STR (' + esc(fdateAny(estr.data)) + ')</span><b class="num">' + pc(estr.valor, 3) + '</b></div>' +
+        '<div class="split"><span>Spread do índice</span><b class="num">+' + pc(spread, 3) + '</b></div>' +
+        '<div class="split"><span>Custo anual (TER)</span><b class="num">−' + esc(fmtTer(ter.num)) + '</b></div>' +
+        '<div class="split"><span><b>Rendimento bruto estimado</b></span><b class="num">≈ ' + pc(est, 2) + ' ao ano</b></div>' +
+        '<p class="small muted">Estimativa antes de impostos. O rendimento real varia com o €STR e com a data de compra.</p>';
+    }
+
+    // fichas
+    const tickers = Array.from(new Set(S.holdings.filter((h) => h.classe !== 'caixa').map((h) => h.ticker.toUpperCase()).concat(S.refs.map((r) => r.ticker))));
+    $('#rd-refs').innerHTML = tickers.length ? tickers.map((t) => {
+      const rs = S.refs.filter((r) => r.ticker === t);
+      if (!rs.length) return '<div class="rd-t"><h3>' + esc(t) + '</h3><p class="small muted">Sem ficha de referência.</p></div>';
+      const fontes = ['emissor', 'justetf', 'trackinsight'].filter((f) => rs.some((r) => r.fonte === f));
+      const head = '<tr><th>Campo</th>' + fontes.map((f) => '<th>' + esc(FONTES[f]) + '</th>').join('') + '</tr>';
+      const body = CAMPOS.filter(([c]) => rs.some((r) => r.campo === c)).map(([c, l]) =>
+        '<tr><td>' + esc(l) + '</td>' + fontes.map((f) => '<td>' + fmtCampo(c, rs.find((r) => r.fonte === f && r.campo === c)) + '</td>').join('') + '</tr>').join('');
+      const src = fontes.map((f) => {
+        const fr = rs.filter((r) => r.fonte === f), data = fr.reduce((a, r) => (r.data > a ? r.data : a), ''), url = (fr.find((r) => /^https:\/\//.test(r.url)) || {}).url;
+        return (url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(FONTES[f]) + '</a>' : esc(FONTES[f])) + ' a ' + fdate(data);
+      }).join(' · ');
+      return '<div class="rd-t"><h3>' + esc(t) + '</h3><div class="scroll"><table class="t">' + head + body + '</table></div><div class="srcline">' + src + '</div></div>';
+    }).join('') : '<p class="small muted">Sem posições.</p>';
+  }
+  async function fetchEcb() {
+    if (!needOnline()) return;
+    const btn = $('#rd-ecb'), label = btn.textContent, msg = $('#rd-ecb-msg');
+    btn.disabled = true; btn.textContent = 'A ler…';
+    try {
+      const { data, error } = await sb.functions.invoke('radar-ecb', { method: 'POST', body: {} });
+      if (error) {
+        let m = error.message;
+        try { const j = await error.context.json(); if (j && j.error) m = j.error; } catch (e) { /* ignora */ }
+        throw new Error(m);
+      }
+      if (!data || !data.ok || !Array.isArray(data.series)) throw new Error('Resposta inesperada da função.');
+      ecb = data;
+      try { localStorage.setItem(radarKey(), JSON.stringify(data)); } catch (e) { /* ignora */ }
+      msg.textContent = ''; msg.className = 'msg';
+      rRadar(); toast('Dados do BCE atualizados');
+    } catch (e) {
+      msg.textContent = 'Não foi possível ler o BCE: ' + (e.message || e); msg.className = 'msg bad';
+    } finally { btn.disabled = false; btn.textContent = label; }
+  }
 
   /* ---------- dados iniciais ---------- */
   async function seed() {
@@ -471,6 +603,7 @@
     $('#seed-go').addEventListener('click', async () => { if (needOnline()) { $('#seed-go').disabled = true; await seed(); $('#seed-go').disabled = false; } });
     $('#snap-today').addEventListener('click', async () => { if (needOnline()) await snapToday(); });
     $('#t212-sync').addEventListener('click', syncT212);
+    $('#rd-ecb').addEventListener('click', fetchEcb);
     $('#dep').addEventListener('input', rCart);
 
     // posições
@@ -659,7 +792,7 @@
     if (!u) return;
     user = u; showApp();
     if (loadedFor === u.id) return;
-    loadedFor = u.id; S = emptyS(); setSync('', 'A carregar');
+    loadedFor = u.id; S = emptyS(); loadEcbCache(); setSync('', 'A carregar');
     await refresh();
   }
 
