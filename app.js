@@ -154,18 +154,25 @@
     const W = 640, H = 280, L = 62, R = 14, T = 12, B = 26;
     const ys = o.series.flatMap((s) => s.pts.map((p) => p[1]));
     let lo = o.ymin === null ? Math.min(...ys) : o.ymin, hi = Math.max(...ys);
-    if (o.ymin === null) { const pad = (hi - lo) * 0.25 || Math.max(1, hi * 0.02); lo = Math.max(0, lo - pad); hi += pad; } else hi = niceMax(hi);
+    if (o.ymin === null) { const pad = (hi - lo) * 0.25 || Math.max(1, Math.abs(hi) * 0.02); lo = o.neg ? lo - pad : Math.max(0, lo - pad); hi += pad; } else hi = niceMax(hi);
     const X = (x) => L + (o.xmax ? x / o.xmax : 0) * (W - L - R);
     const Y = (v) => T + (1 - (v - lo) / ((hi - lo) || 1)) * (H - T - B);
+    if (o.out) { o.out.lo = lo; o.out.hi = hi; o.out.g = { W, H, L, R, T, B }; }
     let g = '';
+    if (o.neg && lo < 0 && hi > 0) g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(0) + '" y2="' + Y(0) + '" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3"/>';
     for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4, y = Y(v); g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/><text class="ax" x="' + (L - 8) + '" y="' + (y + 3.5) + '" text-anchor="end">' + esc(o.yfmt(v)) + '</text>'; }
     o.xticks.forEach((t, i) => { const a = i === 0 ? 'start' : i === o.xticks.length - 1 ? 'end' : 'middle'; g += '<text class="ax" x="' + X(t.x) + '" y="' + (H - 8) + '" text-anchor="' + a + '">' + esc(t.label) + '</text>'; });
     let ln = '';
     o.series.forEach((s) => {
       const pts = s.pts.map((p) => X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ');
+      if (s.area && s.pts.length > 1) {
+        const base = (o.neg && lo < 0 && hi > 0) ? Y(0) : H - B, f = s.pts[0], l = s.pts[s.pts.length - 1];
+        ln += '<polygon fill="' + s.c + '" fill-opacity=".13" stroke="none" points="' + X(f[0]).toFixed(1) + ',' + base.toFixed(1) + ' ' + pts + ' ' + X(l[0]).toFixed(1) + ',' + base.toFixed(1) + '"/>';
+      }
       ln += '<polyline fill="none" stroke="' + s.c + '" stroke-width="' + (s.w || 2.2) + '"' + (s.dash ? ' stroke-dasharray="5 4"' : '') + ' stroke-linejoin="round" points="' + pts + '"/>';
-      if (s.main && s.pts.length) { const p = s.pts[s.pts.length - 1]; ln += '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>'; }
+      if (s.main && s.pts.length) { const p = s.pts[s.pts.length - 1]; ln += '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="4" fill="' + s.c + '" stroke="var(--surface)" stroke-width="2"/>'; }
     });
+    if (o.cursor) ln += '<line class="cur" x1="0" x2="0" y1="' + T + '" y2="' + (H - B) + '" stroke="var(--muted)" stroke-width="1" visibility="hidden"/><circle class="curd" r="5" cx="0" cy="0" fill="' + o.cursor + '" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>';
     return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(o.label) + '">' + g + ln + '</svg>';
   }
   function barsChart(items, meta) {
@@ -193,14 +200,11 @@
     $('#seedbox').hidden = !(S.holdings.length === 0 && S.snaps.length === 0 && S.notes.length === 0) || offline;
     $('#total').textContent = eur(t.tot);
     $('#ganho').innerHTML = S.holdings.length ? '<span class="' + (t.gan >= 0 ? 'pos' : 'neg') + '">' + sg(t.gan) + ' · ' + sp(t.ret) + '</span> <span class="muted">desde o início</span>' : '';
-    $('#bar').innerHTML = t.inv.map((h, i) => '<i style="width:' + (t.base > 0 ? h.valor / t.base * 100 : 0) + '%;background:' + COLORS[i % COLORS.length] + '"></i>').join('');
-    $('#bar-note').textContent = t.inv.length ? 'Alvo: ' + t.inv.filter((h) => h.alvo > 0).map((h) => h.ticker + ' ' + pc(h.alvo, 0)).join(' · ') : '';
-    const rows = t.inv.map((h, i) => {
-      const wgt = t.base > 0 ? h.valor / t.base * 100 : 0, d = wgt - h.alvo;
-      return '<tr><td><span class="dot" style="background:' + COLORS[i % COLORS.length] + '"></span>' + esc(h.ticker) + '</td><td>' + eur(h.valor) + '</td><td>' + pc(wgt) + ' / ' + pc(h.alvo, 0) + '</td><td class="' + (Math.abs(d) < 1 ? 'muted' : d > 0 ? 'pos' : 'neg') + '">' + (d < 0 ? '−' : '+') + pc(Math.abs(d)) + '</td></tr>';
-    }).join('');
     const cx = S.holdings.filter((h) => h.classe === 'caixa').reduce((a, h) => a + h.valor, 0);
-    $('#alloc').innerHTML = rows + (cx ? '<tr><td class="muted">Caixa</td><td>' + eur(cx) + '</td><td></td><td></td></tr>' : '');
+    $('#k-dep').textContent = S.holdings.length ? eur(t.custo) : '—';
+    $('#k-etf').textContent = S.holdings.length ? eur(t.base) : '—';
+    $('#k-cash').textContent = S.holdings.length ? eur(cx) : '—';
+    rDonut(t); rParts(t, cx); rPerf(t);
     // alertas
     const sa = t.inv.reduce((a, h) => a + h.alvo, 0), msgs = [];
     if (t.inv.length && Math.abs(sa - 100) > 0.01) msgs.push('Os alvos somam ' + pc(sa) + '. Ajusta para 100 %.');
@@ -209,7 +213,112 @@
       if (Math.abs(d) > 5) msgs.push(h.ticker + ' está ' + pc(Math.abs(d), 1) + (d < 0 ? ' abaixo' : ' acima') + ' do alvo.' + (d < 0 ? ' Reforça-o no próximo aporte, sem vender nada.' : ''));
     });
     $('#drift').hidden = !msgs.length; $('#drift').innerHTML = msgs.map(esc).join('<br>');
-    // rebalance
+    rNext();
+  }
+  /* donut ao estilo da Trading 212: anel exterior = pesos atuais, anel interior = pesos-alvo */
+  function ringSvg(r, w, parts, dim) {
+    const C = 2 * Math.PI * r, gap = parts.length > 1 ? 1.6 : 0;
+    let off = 0, s = '<circle cx="100" cy="100" r="' + r + '" fill="none" stroke="var(--surface2)" stroke-width="' + w + '"/>';
+    parts.forEach((p) => {
+      const len = C * p.f, d = Math.max(0.5, len - gap);
+      s += '<circle cx="100" cy="100" r="' + r + '" fill="none" stroke="' + p.c + '" stroke-width="' + w + '" stroke-dasharray="' + d.toFixed(2) + ' ' + (C - d).toFixed(2) + '" stroke-dashoffset="' + (-off).toFixed(2) + '" transform="rotate(-90 100 100)"' + (dim ? ' opacity=".55"' : '') + '/>';
+      off += len;
+    });
+    return s;
+  }
+  function rDonut(t) {
+    const inv = t.inv.map((h, i) => ({ h, c: COLORS[i % COLORS.length] }));
+    const atual = inv.filter((x) => x.h.valor > 0 && t.base > 0).map((x) => ({ c: x.c, f: x.h.valor / t.base }));
+    const sa = inv.reduce((a, x) => a + (x.h.alvo > 0 ? x.h.alvo : 0), 0);
+    const alvo = sa > 0 ? inv.filter((x) => x.h.alvo > 0).map((x) => ({ c: x.c, f: x.h.alvo / sa })) : [];
+    $('#donut').innerHTML = '<svg viewBox="0 0 200 200" aria-hidden="true">' + ringSvg(86, 20, atual, false) + ringSvg(62, 12, alvo, true) +
+      '<text class="dn-v" x="100" y="98" text-anchor="middle">' + esc(eur(t.tot)) + '</text><text class="dn-s" x="100" y="116" text-anchor="middle">valor da pie</text></svg>';
+    $('#dn-note').textContent = t.inv.length ? t.inv.length + (t.inv.length === 1 ? ' ETF' : ' ETFs') : '';
+    $('#dlegend').innerHTML = inv.map((x) => {
+      const wgt = t.base > 0 ? x.h.valor / t.base * 100 : 0;
+      return '<div class="dl"><span class="dot" style="background:' + x.c + '"></span><div><b>' + esc(x.h.ticker) + '</b><div class="small muted num">alvo ' + esc(pc(x.h.alvo, 0)) + '</div></div><b class="num">' + esc(pc(wgt, 1)) + '</b></div>';
+    }).join('');
+  }
+  function rParts(t, cx) {
+    $('#parts-n').textContent = S.holdings.length ? 'Valor · ganho' : '';
+    const rows = t.inv.map((h, i) => {
+      const c = COLORS[i % COLORS.length], wgt = t.base > 0 ? h.valor / t.base * 100 : 0, d = wgt - h.alvo;
+      const custo = h.valor - h.ganho, ret = custo > 0 ? h.ganho / custo * 100 : 0;
+      const dcl = Math.abs(d) < 1 ? 'muted' : d > 0 ? 'pos' : 'neg';
+      return '<div class="part"><div class="pl"><span class="ic" style="--c:' + c + '">' + esc(h.ticker.slice(0, 4)) + '</span><div class="grow"><b>' + esc(h.ticker) + '</b><div class="small muted pn">' + esc(h.nome) + '</div></div>' +
+        '<div class="pr"><b class="num">' + esc(eur(h.valor)) + '</b><div class="small num ' + (h.ganho >= 0 ? 'pos' : 'neg') + '">' + esc(sg(h.ganho)) + ' · ' + esc(sp(ret)) + '</div></div></div>' +
+        '<div class="wbar" aria-hidden="true"><i style="width:' + Math.min(100, wgt).toFixed(2) + '%;background:' + c + '"></i>' + (h.alvo > 0 ? '<u style="left:' + Math.min(100, h.alvo) + '%"></u>' : '') + '</div>' +
+        '<div class="small muted">Peso ' + esc(pc(wgt)) + ' · alvo ' + esc(pc(h.alvo, 0)) + ' · <span class="' + dcl + '">' + (d < 0 ? '−' : '+') + esc(pc(Math.abs(d)).replace(' %', ' pp')) + '</span></div></div>';
+    }).join('');
+    $('#parts').innerHTML = (rows || '<p class="small muted">Sem posições.</p>') +
+      (cx ? '<div class="part"><div class="pl"><span class="ic" style="--c:var(--muted)">€</span><div class="grow"><b>Caixa</b><div class="small muted pn">Por investir</div></div><div class="pr"><b class="num">' + esc(eur(cx)) + '</b></div></div></div>' : '');
+  }
+
+  /* evolução ao estilo da Trading 212: Valor ou Resultado, com períodos e leitura ao tocar */
+  const PERF = { mode: 'valor', range: 'max', ctx: null };
+  const RANGE_DAYS = { '1m': 30, '3m': 91, '6m': 182, '1a': 365 };
+  function perfPoints(t) {
+    const m = new Map();
+    S.snaps.forEach((s) => m.set(s.data, { d: s.data, v: s.valor, dep: s.depositado }));
+    if (S.holdings.length) m.set(today(), { d: today(), v: +t.tot.toFixed(2), dep: +t.custo.toFixed(2) }); // o ponto de hoje usa os valores atuais
+    let a = Array.from(m.values()).sort((x, y) => (x.d < y.d ? -1 : 1));
+    const days = RANGE_DAYS[PERF.range];
+    if (days && a.length > 2) {
+      const cut = iso(new Date(Date.now() - days * 86400000)), i = a.findIndex((p) => p.d >= cut);
+      a = a.slice(i < 0 ? a.length - 1 : Math.max(0, i - 1)); // mantém o ponto anterior para a linha ter origem
+    }
+    return a;
+  }
+  function rPerf(t) {
+    $$('#perf-mode button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === PERF.mode)));
+    $$('#perf-range button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.range === PERF.range)));
+    const a = perfPoints(t), box = $('#perf-chart');
+    PERF.ctx = null;
+    if (a.length < 2) {
+      box.innerHTML = '<p class="small muted">Ainda só há um ponto. Guarda o registo de hoje todos os meses (ou mais vezes) para veres a evolução.</p>';
+      $('#perf-legend').innerHTML = ''; $('#perf-sub').textContent = '';
+      $('#perf-val').textContent = a.length ? eur(a[0].v) : '—'; $('#perf-date').textContent = a.length ? fdate(a[0].d) : '';
+      return;
+    }
+    const res = PERF.mode === 'resultado', d0 = Date.parse(a[0].d + 'T00:00:00Z') / 86400000, day = (s) => Date.parse(s + 'T00:00:00Z') / 86400000 - d0;
+    const xmax = day(a[a.length - 1].d) || 1, xt = [];
+    for (let i = 0; i <= 3; i++) { const dd = new Date((d0 + xmax * i / 3) * 86400000); xt.push({ x: xmax * i / 3, label: String(dd.getUTCDate()).padStart(2, '0') + '/' + String(dd.getUTCMonth() + 1).padStart(2, '0') }); }
+    const y = (p) => (res ? p.v - p.dep : p.v), lastP = a[a.length - 1];
+    const col = res && y(lastP) < 0 ? 'var(--neg)' : 'var(--accent)', out = {};
+    const series = [];
+    if (!res) series.push({ pts: a.map((p) => [day(p.d), p.dep]), c: 'var(--c2)', dash: true, w: 1.6 });
+    series.push({ pts: a.map((p) => [day(p.d), y(p)]), c: col, w: 2.8, main: true, area: true });
+    box.innerHTML = lineChart({ series, xmax, xticks: xt, ymin: null, neg: res, yfmt: eur, label: res ? 'Resultado da pie ao longo do tempo' : 'Valor da pie e total depositado ao longo do tempo', out, cursor: col });
+    const g = out.g;
+    PERF.ctx = { a, y, res, col, last: lastP, pts: a.map((p) => ({ p, px: g.L + (day(p.d) / xmax) * (g.W - g.L - g.R), py: g.T + (1 - (y(p) - out.lo) / ((out.hi - out.lo) || 1)) * (g.H - g.T - g.B) })), W: g.W };
+    $('#perf-legend').innerHTML = res ? '<span style="--c:' + col + '">Resultado (valor − depositado)</span>' : '<span style="--c:var(--accent)">Valor da pie</span><span class="dash" style="--c:var(--c2)">Depositado</span>';
+    showPerf(lastP, false);
+    // resultado do período, sem contar os depósitos
+    const f = a[0], g2 = lastP.v - f.v - (lastP.dep - f.dep), r2 = f.v > 0 ? g2 / f.v * 100 : 0;
+    $('#perf-sub').textContent = 'No período (' + fdate(f.d) + ' a ' + fdate(lastP.d) + '): ' + sg(g2) + ' (' + sp(r2) + '), sem contar os depósitos. Passa o dedo pelo gráfico para ver cada ponto.';
+  }
+  function showPerf(p, active) {
+    const c = PERF.ctx; if (!c) return;
+    const cur = c.pts.find((x) => x.p === p), val = c.y(p), pct = p.dep > 0 ? (p.v - p.dep) / p.dep * 100 : 0;
+    $('#perf-val').innerHTML = c.res ? '<span class="' + (val >= 0 ? 'pos' : 'neg') + '">' + esc(sg(val)) + ' · ' + esc(sp(pct)) + '</span>' : esc(eur(p.v));
+    $('#perf-date').textContent = fdate(p.d) + (c.res ? '' : ' · depositado ' + eur(p.dep));
+    const svg = $('#perf-chart svg'); if (!svg || !cur) return;
+    const ln = svg.querySelector('.cur'), dot = svg.querySelector('.curd'); if (!ln || !dot) return;
+    ln.setAttribute('x1', cur.px); ln.setAttribute('x2', cur.px); dot.setAttribute('cx', cur.px); dot.setAttribute('cy', cur.py);
+    ln.setAttribute('visibility', active ? 'visible' : 'hidden'); dot.setAttribute('visibility', active ? 'visible' : 'hidden');
+  }
+  function perfScrub(e) {
+    const c = PERF.ctx, svg = $('#perf-chart svg'); if (!c || !svg) return;
+    const r = svg.getBoundingClientRect(); if (!r.width) return;
+    const vx = (e.clientX - r.left) / r.width * c.W;
+    let best = c.pts[0]; c.pts.forEach((q) => { if (Math.abs(q.px - vx) < Math.abs(best.px - vx)) best = q; });
+    showPerf(best.p, true);
+  }
+  function perfEnd() { if (PERF.ctx) showPerf(PERF.ctx.last, false); }
+
+  /* dinheiro novo: divisão sem vender */
+  function rNext() {
+    const t = totals();
     const D = Math.max(0, num($('#dep').value));
     if (D > 0 && t.inv.length) {
       const need = rebalance(t.inv, D);
@@ -626,7 +735,12 @@
     $('#snap-today').addEventListener('click', async () => { if (needOnline()) await snapToday(); });
     $('#t212-sync').addEventListener('click', syncT212);
     $('#rd-ecb').addEventListener('click', fetchEcb);
-    $('#dep').addEventListener('input', rCart);
+    $('#dep').addEventListener('input', rNext);
+    $('#perf-mode').addEventListener('click', (e) => { const b = e.target.closest('button[data-mode]'); if (!b) return; PERF.mode = b.dataset.mode; rPerf(totals()); });
+    $('#perf-range').addEventListener('click', (e) => { const b = e.target.closest('button[data-range]'); if (!b) return; PERF.range = b.dataset.range; rPerf(totals()); });
+    const pc_ = $('#perf-chart');
+    ['pointerdown', 'pointermove'].forEach((n) => pc_.addEventListener(n, perfScrub));
+    ['pointerleave', 'pointerup', 'pointercancel'].forEach((n) => pc_.addEventListener(n, perfEnd));
 
     // posições
     $('#hold-edit').addEventListener('input', (e) => {
@@ -666,7 +780,7 @@
     $('#s-d').value = today(); $('#ap-d').value = today(); $('#n-d').value = today();
     $('#s-fill').addEventListener('click', () => {
       const t = totals(); $('#s-v').value = t.tot.toFixed(2).replace('.', ','); $('#s-i').value = t.custo.toFixed(2).replace('.', ',');
-      $('#s-msg').textContent = 'Preenchido com o valor e o ganho da Carteira. Confirma o total depositado.'; $('#s-msg').className = 'msg';
+      $('#s-msg').textContent = 'Preenchido com o valor e o ganho da Pie. Confirma o total depositado.'; $('#s-msg').className = 'msg';
     });
     $('#s-add').addEventListener('click', async () => {
       const d = $('#s-d').value, v = num($('#s-v').value), i = num($('#s-i').value), m = $('#s-msg');

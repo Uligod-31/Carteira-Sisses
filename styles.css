@@ -87,11 +87,6 @@ details[open] summary{margin-bottom:12px}
 .li .grow{flex:1;min-width:0;overflow-wrap:anywhere}
 .li input{max-width:110px;padding:7px 9px;font-size:15px}
 .x{background:none;border:1px solid var(--line);border-radius:8px;width:36px;height:36px;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;flex:none}
-.alloc{width:100%;border-collapse:collapse;margin-top:10px}
-.alloc th{font-weight:500;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:right;padding:4px 0}
-.alloc td{padding:9px 0;border-top:1px solid var(--line);text-align:right;font-family:var(--f-num);font-size:13.5px;font-variant-numeric:tabular-nums}
-.alloc th:first-child,.alloc td:first-child{text-align:left}
-.alloc td:first-child{font-family:var(--f-body);font-weight:500}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
 table.t{width:100%;border-collapse:collapse;font-size:13px;min-width:430px}
 table.t th{font-weight:500;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:right;padding:6px}
@@ -103,14 +98,12 @@ table.t th:first-child,table.t td:first-child{text-align:left;padding-left:0}
 .hold .hd span{overflow-wrap:anywhere}
 
 /* bar and alerts */
-.bar{position:relative;display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--surface2);margin:12px 0 6px}
-.bar i{display:block;height:100%}
 .alert{margin-top:10px;font-size:13px;border:1px solid var(--c2);color:var(--fg);border-radius:10px;padding:8px 12px;background:var(--surface2)}
 .legend{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
 .legend span::before{content:"";display:inline-block;width:14px;height:0;border-top:3px solid var(--c,var(--accent));margin-right:6px;vertical-align:middle}
 .legend span.dash::before{border-top-style:dashed}
 svg.chart{width:100%;height:auto;display:block}
-svg .ax{fill:var(--muted);font:10.5px var(--f-num)}
+svg .ax{fill:var(--muted);font:13px var(--f-num)}
 svg .gl{stroke:var(--line);stroke-width:1}
 
 /* goals, notes, checks */
@@ -161,3 +154,37 @@ svg .gl{stroke:var(--line);stroke-width:1}
 /* versão */
 .ver{font-size:11px;color:var(--muted);font-family:var(--f-num)}
 .hright{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+
+/* pie: donut, participações, evolução (ao estilo da Trading 212) */
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.kpis div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpis b{font-size:14px;font-weight:500;overflow-wrap:anywhere}
+.donut-wrap{display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap;margin:8px 0 4px}
+.donut{width:min(210px,58vw);flex:none}
+.donut svg{display:block;width:100%;height:auto}
+svg .dn-v{fill:var(--fg);font:500 19px var(--f-num)}
+svg .dn-s{fill:var(--muted);font:11px var(--f-body)}
+.dlegend{display:flex;flex-direction:column;gap:10px;min-width:150px;flex:1;max-width:260px}
+.dl{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.dl .dot{margin-right:0;flex:none}
+.dl > div{flex:1;min-width:0}
+.legend.rings{justify-content:center}
+.legend.rings span::before{border-top-width:3px}
+.seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--line);border-radius:999px;background:var(--bg)}
+.seg.wide{display:flex;justify-content:space-between;margin-top:12px}
+.seg.wide button{flex:1}
+.seg button{background:none;border:0;border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;min-height:36px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.perf-read{margin:6px 0 2px;min-height:48px}
+.big-s{font-size:26px;font-weight:500;line-height:1.15;letter-spacing:-.01em}
+.perf-chart{touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:crosshair}
+.part{padding:12px 0;border-top:1px solid var(--line)}
+.part:first-child{border-top:0}
+.pl{display:flex;align-items:center;gap:12px}
+.pl .grow{flex:1;min-width:0}
+.pn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr{text-align:right;flex:none;max-width:48%}
+.ic{width:42px;height:42px;border-radius:50%;border:2.5px solid var(--c,var(--accent));background:var(--surface2);display:grid;place-items:center;font:600 10.5px var(--f-body);color:var(--fg);flex:none;letter-spacing:.02em}
+.wbar{position:relative;height:6px;border-radius:4px;background:var(--surface2);margin:10px 0 6px;overflow:visible}
+.wbar i{display:block;height:100%;border-radius:4px}
+.wbar u{position:absolute;top:-3px;width:2px;height:12px;background:var(--fg);border-radius:1px;text-decoration:none;transform:translateX(-1px)}

@@ -56,7 +56,7 @@
 
   <div class="views">
 
-  <!-- CARTEIRA -->
+  <!-- PIE (id interno: carteira) -->
   <section id="t-carteira">
     <div id="seedbox" class="card" hidden>
       <h2>Ainda sem dados</h2>
@@ -68,15 +68,36 @@
       <div class="eyebrow">Valor da pie</div>
       <div class="big" id="total">—</div>
       <div class="num" id="ganho"></div>
+      <div class="kpis">
+        <div><span class="small muted">Depositado</span><b class="num" id="k-dep">—</b></div>
+        <div><span class="small muted">Em ETFs</span><b class="num" id="k-etf">—</b></div>
+        <div><span class="small muted">Caixa</span><b class="num" id="k-cash">—</b></div>
+      </div>
       <div class="row" style="margin-top:12px"><button class="btn sm" id="t212-sync">Sincronizar com a Trading 212</button><button class="btn sm ghost" id="snap-today">Guardar registo de hoje</button><span class="small muted" id="snap-msg"></span></div>
     </div>
 
     <div class="card">
-      <h2>Repartição</h2>
-      <div class="bar" id="bar" aria-hidden="true"></div>
-      <div class="small muted" id="bar-note"></div>
-      <table class="alloc"><thead><tr><th>ETF</th><th>Valor</th><th>Atual / alvo</th><th>Desvio</th></tr></thead><tbody id="alloc"></tbody></table>
+      <div class="row between"><h2>Composição</h2><span class="small muted" id="dn-note"></span></div>
+      <div class="donut-wrap">
+        <div class="donut" id="donut" role="img" aria-label="Composição da pie"></div>
+        <div class="dlegend" id="dlegend"></div>
+      </div>
+      <div class="legend rings"><span style="--c:var(--fg)">Anel exterior: atual</span><span class="dash" style="--c:var(--fg)">Anel interior: alvo</span></div>
       <div class="alert" id="drift" hidden></div>
+    </div>
+
+    <div class="card">
+      <div class="row between"><h2>Evolução</h2><div class="seg" id="perf-mode" role="group" aria-label="O que mostrar"><button data-mode="valor" aria-pressed="true">Valor</button><button data-mode="resultado" aria-pressed="false">Resultado</button></div></div>
+      <div class="perf-read"><div class="big-s num" id="perf-val">—</div><div class="small muted" id="perf-date"></div></div>
+      <div id="perf-chart" class="perf-chart"></div>
+      <div class="legend" id="perf-legend"></div>
+      <div class="seg wide" id="perf-range" role="group" aria-label="Período"><button data-range="1m" aria-pressed="false">1M</button><button data-range="3m" aria-pressed="false">3M</button><button data-range="6m" aria-pressed="false">6M</button><button data-range="1a" aria-pressed="false">1A</button><button data-range="max" aria-pressed="true">Máx</button></div>
+      <p class="small muted" id="perf-sub" style="margin-top:10px"></p>
+    </div>
+
+    <div class="card">
+      <div class="row between"><h2>Participações</h2><span class="small muted" id="parts-n"></span></div>
+      <div id="parts"></div>
     </div>
 
     <div class="card">
@@ -167,7 +188,7 @@
         <label for="s-v">Valor da pie (€)<input id="s-v" inputmode="decimal"></label>
         <label for="s-i">Total depositado (€)<input id="s-i" inputmode="decimal"></label>
       </div>
-      <div class="row" style="margin-top:12px"><button class="btn" id="s-add">Guardar registo</button><button class="btn ghost" id="s-fill">Usar valores da Carteira</button></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="s-add">Guardar registo</button><button class="btn ghost" id="s-fill">Usar valores da Pie</button></div>
       <div class="msg" id="s-msg"></div>
     </div>
 
@@ -321,7 +342,7 @@
   </div>
 
   <nav class="nav" id="nav" aria-label="Secções">
-    <button data-tab="carteira" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg><span>Carteira</span></button>
+    <button data-tab="carteira" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg><span>Pie</span></button>
     <button data-tab="proj"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-5 4 3 8-9"/><path d="M15 6h5v5"/></svg><span>Projeção</span></button>
     <button data-tab="ret"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Retorno</span></button>
     <button data-tab="plano"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg><span>Plano</span></button>
