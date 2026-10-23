@@ -7,16 +7,16 @@
 
 /* Layout: caderneta de bolso. Uma coluna estreita, navegação fixa em baixo, números em mono sobre fundo verde-tinta. */
 :root{
-  --bg:#f2f5f3; --surface:#ffffff; --surface2:#e8eeea; --fg:#12201a; --muted:#5b6d64; --line:#d3ddd7;
-  --accent:#0a7d5c; --accent-ink:#ffffff; --c2:#b4701a; --c3:#2b6cb0; --pos:#0a7d5c; --neg:#c2463d;
+  --bg:#eef1f6; --surface:#ffffff; --surface2:#e5e9f0; --fg:#12161c; --muted:#5b6675; --line:#d4dae3;
+  --accent:#1f7fd1; --accent-ink:#ffffff; --c2:#c026d3; --c3:#0e8aa8; --warn:#b4701a; --pos:#188a45; --neg:#cf3f38;
   --f-display:"Bricolage Grotesque","Trebuchet MS",sans-serif;
   --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){:root{
-  --bg:#0c1411; --surface:#131e19; --surface2:#1b2a23; --fg:#e5eee9; --muted:#93a79d; --line:#25352d;
-  --accent:#4fd1a5; --accent-ink:#06251b; --c2:#e3b25f; --c3:#6fa8e8; --pos:#4fd1a5; --neg:#f08a80; color-scheme:dark}}
+  --bg:#0b0d10; --surface:#15181d; --surface2:#1f2329; --fg:#eef1f5; --muted:#8e98a6; --line:#2a3038;
+  --accent:#4aa3e8; --accent-ink:#04121e; --c2:#e060f0; --c3:#66d0e8; --warn:#f0b64e; --pos:#5ccf72; --neg:#f2706a; color-scheme:dark}}
 
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -40,7 +40,7 @@ p{margin:0 0 8px}
 .top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:12px}
 .sync{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 10px;white-space:nowrap}
 .sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:block}
-.sync.ok i{background:var(--pos)} .sync.off i{background:var(--c2)} .sync.err i{background:var(--neg)}
+.sync.ok i{background:var(--pos)} .sync.off i{background:var(--warn)} .sync.err i{background:var(--neg)}
 .banner{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:12px}
 .views section{display:flex;flex-direction:column;gap:14px}
 
@@ -67,9 +67,9 @@ input,select,textarea{background:var(--bg);border:1px solid var(--line);border-r
 input,textarea{font-family:var(--f-num)} textarea{font-family:var(--f-body);font-size:15px;min-height:96px;resize:vertical}
 select{font-family:var(--f-body)}
 input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.btn{font-weight:600;font-size:14px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:11px 16px;cursor:pointer;min-height:44px}
-.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
-.btn.sm{padding:7px 12px;font-size:13px;min-height:36px}
+.btn{font-weight:600;font-size:14px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:11px 20px;cursor:pointer;min-height:44px}
+.btn.ghost{background:var(--surface2);color:var(--fg);border:0}
+.btn.sm{padding:7px 16px;font-size:13px;min-height:36px}
 .btn[disabled]{opacity:.55;cursor:default}
 .link{background:none;border:0;color:var(--accent);font-size:13px;text-decoration:underline;cursor:pointer;padding:6px 0;text-align:left}
 .msg{font-size:13px;min-height:1.2em;color:var(--muted);margin-top:8px}
@@ -98,12 +98,12 @@ table.t th:first-child,table.t td:first-child{text-align:left;padding-left:0}
 .hold .hd span{overflow-wrap:anywhere}
 
 /* bar and alerts */
-.alert{margin-top:10px;font-size:13px;border:1px solid var(--c2);color:var(--fg);border-radius:10px;padding:8px 12px;background:var(--surface2)}
+.alert{margin-top:10px;font-size:13px;border:1px solid var(--warn);color:var(--fg);border-radius:10px;padding:8px 12px;background:var(--surface2)}
 .legend{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
 .legend span::before{content:"";display:inline-block;width:14px;height:0;border-top:3px solid var(--c,var(--accent));margin-right:6px;vertical-align:middle}
 .legend span.dash::before{border-top-style:dashed}
 svg.chart{width:100%;height:auto;display:block}
-svg .ax{fill:var(--muted);font:13px var(--f-num)}
+svg .ax{fill:var(--muted);font:17px var(--f-num)}
 svg .gl{stroke:var(--line);stroke-width:1}
 
 /* goals, notes, checks */
@@ -115,7 +115,7 @@ svg .gl{stroke:var(--line);stroke-width:1}
 .note:first-child{border-top:0}
 .note .body{flex:1;min-width:0;overflow-wrap:anywhere;white-space:pre-wrap}
 .pill{font-size:11px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap;border:1px solid currentColor}
-.pill.pendente{color:var(--c2)} .pill.decisao{color:var(--accent)} .pill.rejeitado{color:var(--neg)} .pill.nota,.pill.revisao{color:var(--c3)}
+.pill.pendente{color:var(--warn)} .pill.decisao{color:var(--accent)} .pill.rejeitado{color:var(--neg)} .pill.nota,.pill.revisao{color:var(--c3)}
 .checks{display:flex;flex-direction:column;gap:6px}
 .check{display:flex;flex-direction:row;align-items:center;gap:10px;font-size:14px;color:var(--fg);padding:6px 0}
 .check input{width:22px;height:22px;flex:none;accent-color:var(--accent)}
@@ -149,7 +149,7 @@ svg .gl{stroke:var(--line);stroke-width:1}
 .rd-t h3{margin:14px 0 4px}
 .srcline{font-size:12px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
 .srcline a{color:var(--accent)}
-.warn{color:var(--c2)}
+.warn{color:var(--warn)}
 
 /* versão */
 .ver{font-size:11px;color:var(--muted);font-family:var(--f-num)}
@@ -173,7 +173,7 @@ svg .dn-s{fill:var(--muted);font:11px var(--f-body)}
 .seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--line);border-radius:999px;background:var(--bg)}
 .seg.wide{display:flex;justify-content:space-between;margin-top:12px}
 .seg.wide button{flex:1}
-.seg button{background:none;border:0;border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;min-height:36px}
+.seg button{background:none;border:0;border-radius:999px;padding:6px 10px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;min-height:36px}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .perf-read{margin:6px 0 2px;min-height:48px}
 .big-s{font-size:26px;font-weight:500;line-height:1.15;letter-spacing:-.01em}

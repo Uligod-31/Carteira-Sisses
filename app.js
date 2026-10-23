@@ -151,7 +151,7 @@
 
   /* ---------- gráficos ---------- */
   function lineChart(o) {
-    const W = 640, H = 280, L = 62, R = 14, T = 12, B = 26;
+    const W = 640, H = 280, L = 86, R = 16, T = 14, B = 30;
     const ys = o.series.flatMap((s) => s.pts.map((p) => p[1]));
     let lo = o.ymin === null ? Math.min(...ys) : o.ymin, hi = Math.max(...ys);
     if (o.ymin === null) { const pad = (hi - lo) * 0.25 || Math.max(1, Math.abs(hi) * 0.02); lo = o.neg ? lo - pad : Math.max(0, lo - pad); hi += pad; } else hi = niceMax(hi);
@@ -160,7 +160,7 @@
     if (o.out) { o.out.lo = lo; o.out.hi = hi; o.out.g = { W, H, L, R, T, B }; }
     let g = '';
     if (o.neg && lo < 0 && hi > 0) g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(0) + '" y2="' + Y(0) + '" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3"/>';
-    for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4, y = Y(v); g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/><text class="ax" x="' + (L - 8) + '" y="' + (y + 3.5) + '" text-anchor="end">' + esc(o.yfmt(v)) + '</text>'; }
+    for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4, y = Y(v); g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/><text class="ax" x="' + (L - 8) + '" y="' + (y + 6) + '" text-anchor="end">' + esc(o.yfmt(v)) + '</text>'; }
     o.xticks.forEach((t, i) => { const a = i === 0 ? 'start' : i === o.xticks.length - 1 ? 'end' : 'middle'; g += '<text class="ax" x="' + X(t.x) + '" y="' + (H - 8) + '" text-anchor="' + a + '">' + esc(t.label) + '</text>'; });
     let ln = '';
     o.series.forEach((s) => {
@@ -176,13 +176,13 @@
     return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(o.label) + '">' + g + ln + '</svg>';
   }
   function barsChart(items, meta) {
-    const W = 640, H = 220, L = 52, R = 10, T = 16, B = 28;
+    const W = 640, H = 220, L = 66, R = 10, T = 18, B = 32;
     const n = items.length; if (!n) return '';
     const ymax = niceMax(Math.max(meta || 0, ...items.map((i) => i.v), 1));
     const Y = (v) => T + (1 - v / ymax) * (H - T - B);
     const slot = (W - L - R) / n, bw = Math.min(46, slot * 0.6);
     let g = '';
-    for (let i = 0; i <= 3; i++) { const v = ymax * i / 3, y = Y(v); g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/><text class="ax" x="' + (L - 8) + '" y="' + (y + 3.5) + '" text-anchor="end">' + esc(eur0(v)) + '</text>'; }
+    for (let i = 0; i <= 3; i++) { const v = ymax * i / 3, y = Y(v); g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/><text class="ax" x="' + (L - 8) + '" y="' + (y + 6) + '" text-anchor="end">' + esc(eur0(v)) + '</text>'; }
     let b = '';
     items.forEach((it, i) => {
       const x = L + i * slot + (slot - bw) / 2, y = Y(it.v);
@@ -256,46 +256,60 @@
 
   /* evolução ao estilo da Trading 212: Valor ou Resultado, com períodos e leitura ao tocar */
   const PERF = { mode: 'valor', range: 'max', ctx: null };
-  const RANGE_DAYS = { '1m': 30, '3m': 91, '6m': 182, '1a': 365 };
+  const RANGE_DAYS = { '1d': 1, '1s': 7, '1m': 30, '3m': 91, '6m': 182, '1a': 365 };
+  const dnum = (s) => Date.parse(s + 'T00:00:00Z') / 86400000;
+  /* Pontos do período. O eixo cobre sempre o período escolhido (como na Trading 212): se os registos só começam depois do início,
+     a zona anterior fica vazia; se há um registo anterior ao início, o início é estimado ligando os dois registos vizinhos. */
   function perfPoints(t) {
     const m = new Map();
     S.snaps.forEach((s) => m.set(s.data, { d: s.data, v: s.valor, dep: s.depositado }));
     if (S.holdings.length) m.set(today(), { d: today(), v: +t.tot.toFixed(2), dep: +t.custo.toFixed(2) }); // o ponto de hoje usa os valores atuais
-    let a = Array.from(m.values()).sort((x, y) => (x.d < y.d ? -1 : 1));
-    const days = RANGE_DAYS[PERF.range];
-    if (days && a.length > 2) {
-      const cut = iso(new Date(Date.now() - days * 86400000)), i = a.findIndex((p) => p.d >= cut);
-      a = a.slice(i < 0 ? a.length - 1 : Math.max(0, i - 1)); // mantém o ponto anterior para a linha ter origem
-    }
-    return a;
+    const all = Array.from(m.values()).sort((x, y) => (x.d < y.d ? -1 : 1));
+    if (!all.length) return { a: [], start: today(), end: today() };
+    const end = all[all.length - 1].d, days = RANGE_DAYS[PERF.range];
+    if (!days) return { a: all, start: all[0].d, end, before: null, est: false };
+    const dstart = new Date(Date.parse(end + 'T12:00:00Z') - days * 86400000).toISOString().slice(0, 10); // início = fim − N dias
+    const inside = all.filter((x) => x.d >= dstart), prev = all.filter((x) => x.d < dstart).pop();
+    const a = inside.slice(); let est = false, before = null;
+    if (prev && inside.length && inside[0].d !== dstart) {
+      const f = (dnum(dstart) - dnum(prev.d)) / (dnum(inside[0].d) - dnum(prev.d));
+      a.unshift({ d: dstart, v: +(prev.v + (inside[0].v - prev.v) * f).toFixed(2), dep: +(prev.dep + (inside[0].dep - prev.dep) * f).toFixed(2), est: true }); est = true;
+    } else if (!prev && inside.length && inside[0].d > dstart) before = inside[0].d; // os registos começam depois do início do período
+    return { a, start: dstart, end, before, est };
   }
   function rPerf(t) {
     $$('#perf-mode button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === PERF.mode)));
     $$('#perf-range button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.range === PERF.range)));
-    const a = perfPoints(t), box = $('#perf-chart');
+    const P = perfPoints(t), a = P.a, box = $('#perf-chart');
     PERF.ctx = null;
     if (a.length < 2) {
-      box.innerHTML = '<p class="small muted">Ainda só há um ponto. Guarda o registo de hoje todos os meses (ou mais vezes) para veres a evolução.</p>';
+      box.innerHTML = '<p class="small muted">' + (a.length ? 'Só há um registo neste período. Guarda o registo de hoje para o gráfico ganhar forma.' : 'Ainda sem registos.') + '</p>';
       $('#perf-legend').innerHTML = ''; $('#perf-sub').textContent = '';
       $('#perf-val').textContent = a.length ? eur(a[0].v) : '—'; $('#perf-date').textContent = a.length ? fdate(a[0].d) : '';
       return;
     }
-    const res = PERF.mode === 'resultado', d0 = Date.parse(a[0].d + 'T00:00:00Z') / 86400000, day = (s) => Date.parse(s + 'T00:00:00Z') / 86400000 - d0;
-    const xmax = day(a[a.length - 1].d) || 1, xt = [];
-    for (let i = 0; i <= 3; i++) { const dd = new Date((d0 + xmax * i / 3) * 86400000); xt.push({ x: xmax * i / 3, label: String(dd.getUTCDate()).padStart(2, '0') + '/' + String(dd.getUTCMonth() + 1).padStart(2, '0') }); }
+    const res = PERF.mode === 'resultado', d0 = dnum(P.start), day = (s) => dnum(s) - d0;
+    const xmax = Math.max(1, day(P.end)), long = xmax > 100, xt = [];
+    for (let i = 0; i <= 3; i++) {
+      const dd = new Date((d0 + Math.round(xmax * i / 3)) * 86400000), dm = String(dd.getUTCDate()).padStart(2, '0') + '/' + String(dd.getUTCMonth() + 1).padStart(2, '0');
+      const label = long ? String(dd.getUTCMonth() + 1).padStart(2, '0') + '/' + String(dd.getUTCFullYear()).slice(2) : dm;
+      if (!xt.length || xt[xt.length - 1].label !== label) xt.push({ x: Math.round(xmax * i / 3), label });
+    }
     const y = (p) => (res ? p.v - p.dep : p.v), lastP = a[a.length - 1];
     const col = res && y(lastP) < 0 ? 'var(--neg)' : 'var(--accent)', out = {};
     const series = [];
     if (!res) series.push({ pts: a.map((p) => [day(p.d), p.dep]), c: 'var(--c2)', dash: true, w: 1.6 });
     series.push({ pts: a.map((p) => [day(p.d), y(p)]), c: col, w: 2.8, main: true, area: true });
-    box.innerHTML = lineChart({ series, xmax, xticks: xt, ymin: null, neg: res, yfmt: eur, label: res ? 'Resultado da pie ao longo do tempo' : 'Valor da pie e total depositado ao longo do tempo', out, cursor: col });
+    box.innerHTML = lineChart({ series, xmax, xticks: xt, ymin: null, neg: res, yfmt: eur, label: (res ? 'Resultado da pie' : 'Valor da pie e total depositado') + ', período ' + fdate(P.start) + ' a ' + fdate(P.end), out, cursor: col });
     const g = out.g;
     PERF.ctx = { a, y, res, col, last: lastP, pts: a.map((p) => ({ p, px: g.L + (day(p.d) / xmax) * (g.W - g.L - g.R), py: g.T + (1 - (y(p) - out.lo) / ((out.hi - out.lo) || 1)) * (g.H - g.T - g.B) })), W: g.W };
     $('#perf-legend').innerHTML = res ? '<span style="--c:' + col + '">Resultado (valor − depositado)</span>' : '<span style="--c:var(--accent)">Valor da pie</span><span class="dash" style="--c:var(--c2)">Depositado</span>';
     showPerf(lastP, false);
     // resultado do período, sem contar os depósitos
     const f = a[0], g2 = lastP.v - f.v - (lastP.dep - f.dep), r2 = f.v > 0 ? g2 / f.v * 100 : 0;
-    $('#perf-sub').textContent = 'No período (' + fdate(f.d) + ' a ' + fdate(lastP.d) + '): ' + sg(g2) + ' (' + sp(r2) + '), sem contar os depósitos. Passa o dedo pelo gráfico para ver cada ponto.';
+    $('#perf-sub').textContent = 'No período (' + fdate(f.d) + ' a ' + fdate(lastP.d) + '): ' + sg(g2) + ' (' + sp(r2) + '), sem contar os depósitos.' +
+      (P.est ? ' O início do período é estimado a partir dos registos vizinhos.' : '') +
+      (P.before ? ' Os registos só começam a ' + fdate(P.before) + '.' : '') + ' Passa o dedo pelo gráfico para ver cada ponto.';
   }
   function showPerf(p, active) {
     const c = PERF.ctx; if (!c) return;
