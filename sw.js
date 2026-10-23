@@ -1,6 +1,6 @@
 // Service worker: guarda a "casca" da app para abrir offline.
 // Os dados vêm sempre do Supabase (pedidos a outros domínios não são intercetados).
-const V = "caderneta-v2";
+const V = "caderneta-v3";
 const SHELL = [
   "./", "index.html", "styles.css", "app.js", "config.js", "manifest.webmanifest",
   "vendor/supabase.js",
