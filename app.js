@@ -238,6 +238,53 @@
     if (!r.error) { S.snaps = r.data.map((x) => ({ id: x.id, data: x.data, valor: +x.valor, depositado: +x.depositado })); persist(); }
   }
 
+  /* ---------- sincronizar com a Trading 212 (só leitura, via Edge Function) ---------- */
+  async function syncT212() {
+    if (!needOnline()) return;
+    const btn = $('#t212-sync'), label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'A ler a Trading 212…';
+    try {
+      const { data, error } = await sb.functions.invoke('t212-sync', { method: 'POST', body: {} });
+      if (error) {
+        let m = error.message;
+        try { const j = await error.context.json(); if (j && j.error) m = j.error; } catch (e) { /* ignora */ }
+        throw new Error(m);
+      }
+      if (!data || !data.ok || !Array.isArray(data.instrumentos)) throw new Error('Resposta inesperada da função.');
+
+      const cash = +data.cash || 0;
+      const linhas = data.instrumentos.map((p) => p.ticker + ': ' + eur(p.valor) + ' (' + sg(p.ganho) + ')');
+      if (cash) linhas.push('Caixa: ' + eur(cash));
+      if (!confirm('Trading 212' + (data.nome ? ' · ' + data.nome : '') + '\n' + linhas.join('\n') + '\nTotal: ' + eur(data.total) + '\n\nAtualizar valores e ganhos na Caderneta? Alvos e nomes ficam como estão.')) return;
+
+      const ups = [], novas = [], semPie = [];
+      data.instrumentos.forEach((p) => {
+        const h = S.holdings.find((x) => x.classe !== 'caixa' && x.ticker.toUpperCase() === p.ticker);
+        if (h) ups.push({ ...h, valor: p.valor, ganho: p.ganho });
+        else novas.push({ id: uuid(), ticker: p.ticker, nome: p.ticker, classe: 'acoes', valor: p.valor, ganho: p.ganho, alvo: 0, ordem: S.holdings.length + novas.length + 1 });
+      });
+      S.holdings.filter((h) => h.classe !== 'caixa' && !data.instrumentos.some((p) => p.ticker === h.ticker.toUpperCase())).forEach((h) => semPie.push(h.ticker));
+      const cx = S.holdings.find((x) => x.classe === 'caixa');
+      if (cx) ups.push({ ...cx, valor: cash, ganho: 0 });
+      else if (cash > 0) novas.push({ id: uuid(), ticker: 'CAIXA', nome: 'Caixa', classe: 'caixa', valor: cash, ganho: 0, alvo: 0, ordem: S.holdings.length + novas.length + 1 });
+
+      const rows = ups.concat(novas).map(dbH);
+      if (!rows.length) { toast('A pie não devolveu posições.', true); return; }
+      if (await w(sb.from('cf_holdings').upsert(rows))) {
+        S.holdings = S.holdings.map((h) => ups.find((u) => u.id === h.id) || h).concat(novas).sort((a, b) => a.ordem - b.ordem);
+        persist(); rHoldEdit(); recompute();
+        let msg = 'Posições atualizadas. Toca em "Guardar registo de hoje" para fixar o mês.';
+        if (novas.some((n) => n.classe !== 'caixa')) msg += ' Há posições novas: define o alvo em Editar posições.';
+        if (semPie.length) msg += ' ' + semPie.join(', ') + ' não vem na pie e ficou como estava.';
+        toast(msg);
+      }
+    } catch (e) {
+      toast('Não foi possível sincronizar: ' + (e.message || e), true);
+    } finally {
+      btn.disabled = false; btn.textContent = label;
+    }
+  }
+
   /* ---------- PROJEÇÃO ---------- */
   const saveCfg = deb(async () => { await w(sb.from('cf_settings').upsert({ user_id: user.id, data: S.cfg, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })); }, 700);
   function rProj() {
@@ -415,6 +462,7 @@
     $$('#nav button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
     $('#seed-go').addEventListener('click', async () => { if (needOnline()) { $('#seed-go').disabled = true; await seed(); $('#seed-go').disabled = false; } });
     $('#snap-today').addEventListener('click', async () => { if (needOnline()) await snapToday(); });
+    $('#t212-sync').addEventListener('click', syncT212);
     $('#dep').addEventListener('input', rCart);
 
     // posições

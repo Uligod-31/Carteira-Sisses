@@ -25,4 +25,14 @@ App instalável (PWA) com login e base de dados Supabase (projeto Caderneta212).
 2. Na aba Carteira carrega em "Carregar dados iniciais".
 3. Depois de criares a tua conta: Supabase > Authentication > Sign In / Providers > desativa "Allow new users to sign up".
 
+## 6. Sincronizar com a Trading 212 (opcional, só leitura)
+A app nunca guarda a chave da Trading 212: ela vive como segredo na Edge Function `t212-sync` (`supabase/functions/t212-sync/index.ts`), que só lê a pie e devolve os valores. Quem grava na base de dados é a app, com o teu login.
+
+1. Trading 212 > Definições > API: cria uma chave só com permissões de leitura (sem ordens). A Trading 212 dá-te uma chave e um segredo.
+2. Supabase > Edge Functions > Secrets: cria `T212_API_KEY` e `T212_API_SECRET`. Opcionais: `T212_PIE_ID`, `T212_PIE_NAME`.
+3. Publica a função (`supabase functions deploy t212-sync --project-ref epywsjqmfzklpfvhhycn`) ou cola o ficheiro no editor de Edge Functions.
+4. Na aba Carteira, "Sincronizar com a Trading 212" mostra os valores para confirmares antes de atualizar.
+
+A API de Pies da Trading 212 está marcada como obsoleta (continua a funcionar, mas sem novas atualizações). Se deixar de funcionar, a atualização manual continua disponível.
+
 A chave em `config.js` é a chave pública (anon). É seguro estar no GitHub: os dados estão protegidos pelo login e pelas regras RLS.
