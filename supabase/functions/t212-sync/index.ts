@@ -64,9 +64,13 @@ Deno.serve(async (req) => {
   try {
     await requireUser(req);
 
-    const key = Deno.env.get('T212_API_KEY');
-    const secret = Deno.env.get('T212_API_SECRET');
+    const key = (Deno.env.get('T212_API_KEY') ?? '').trim();
+    const secret = (Deno.env.get('T212_API_SECRET') ?? '').trim();
     if (!key || !secret) throw new Fail(500, 'A função ainda não tem os segredos T212_API_KEY e T212_API_SECRET.');
+    // Chaves são texto simples: sem espaços, acentos nem aspas tipográficas.
+    const simples = /^[\x21-\x7E]+$/;
+    if (!simples.test(key)) throw new Fail(500, 'O segredo T212_API_KEY tem caracteres inválidos. Apaga-o e cola de novo só a chave, sem espaços nem texto extra.');
+    if (!simples.test(secret)) throw new Fail(500, 'O segredo T212_API_SECRET tem caracteres inválidos. Apaga-o e cola de novo só o segredo, sem espaços nem texto extra.');
     const basic = 'Basic ' + btoa(`${key}:${secret}`);
 
     const pies = await t212('/equity/pies', basic);
